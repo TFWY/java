@@ -1,0 +1,118 @@
+项目开发步骤：从jsp到数据库
+1、把所需的jar包导入到WebRoot/WEB-INF/lib
+2、分包：
+   com.lee.sport
+                .action 获取jsp页面上的值
+                .dao 数据库的增删改查
+                .service 业务逻辑层
+                .db 数据库的连接
+                .utils 工具类
+                .domain  持久层，javabean
+                
+3、创建一个LoginAction的servlet
+public class LoginAction extends BaseAction {
+
+	private static final long serialVersionUID = 1L;
+	
+	private LoginService loginService;
+	
+	@Override
+	protected void doPosts(HttpServletRequest request,
+			HttpServletResponse response, String path, PrintWriter out) throws ServletException, IOException{
+	String username=request.getParameter("username");
+	String password=request.getParameter("password");
+	boolean flag=loginService.login(username,password);
+		if(flag)
+		{
+			request.getSession().setAttribute("username", username);//把用户名保存到session当中
+			request.getRequestDispatcher("/menu/home.jsp").forward(request, response);
+		}else {
+			request.getRequestDispatcher("/index.jsp").forward(request, response);
+		}
+	
+	}
+	@Override
+	protected void inits() throws ServletException{
+		loginService=new LoginServiceImpl() ;
+	}
+}
+4、创建LoginService接口
+
+public interface LoginService {
+	/**
+	 * 登陆
+	 * 
+	 * @param username
+	 *            用户名
+	 * @param password
+	 *            密码
+	 * @return
+	 */
+	public boolean login(String username, String password);
+
+}
+5、让LoginServiceImpl实现LoginService接口
+public class LoginServiceImpl implements LoginService {
+	private LoginDao loginDao;
+	public LoginServiceImpl()
+	{
+		loginDao=new LoginDaoImpl();
+	}
+	@Override
+	public boolean login(String username, String password) {
+		List<Object> params=new ArrayList<Object>();
+		params.add(username);
+		SpoUser user=loginDao.login(params);
+		if(user!=null)
+		{
+			if(password.equals(user.getPassword()))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+}
+6、创建LoginDao接口
+public interface LoginDao {
+	/**
+	 * 登陆
+	 * 
+	 * @param params
+	 * @return SpoUser
+	 */
+	public SpoUser login(List<Object> params);
+
+}
+7、让LoginDaoImpl实现LoginDao接口
+
+public class LoginDaoImpl implements LoginDao {
+	//实例化JdbcUtils对象
+	private JdbcUtils jdbcUtils;
+	
+	public LoginDaoImpl()
+	{
+		jdbcUtils=new JdbcUtils();
+	}
+
+	@Override
+	public SpoUser login(List<Object> params) {
+		SpoUser user = null;
+		try {
+			String sql="SELECT su.password FROM  spo_user su WHERE su.username=?";
+			//得到Connection对象
+			jdbcUtils.getConnection();
+			//增删改查
+			user=jdbcUtils.findSimpleRefResult(sql, params, SpoUser.class);
+			if(user!=null)
+			{
+				return user;
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}finally{
+			jdbcUtils.releaseConn();
+		}
+		return null;
+	}
+}
